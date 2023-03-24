@@ -1,3 +1,20 @@
+# My GPT Rabbi
+
+A trial at making a ChatGPT app for understanding Halacha.
+
+## How to run
+
+1. Clone the repo
+2. `npm install`
+3. `npm run dev`
+
+## Sources
+1. Sefari for getting texts - https://github.com/Sefaria/Sefaria-Project/wiki/API-Documentation
+2. ChatGPT for the GPT-3 model - https://chatgpt.com/
+3. HebCal for getting the Jewish calendar - https://www.hebcal.com/home/195/jewish-calendar-rest-api
+
+
+
 # Create T3 App
 
 This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.

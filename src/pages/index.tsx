@@ -2,10 +2,69 @@ import { type NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { DafYomi } from "@hebcal/core";
+import * as DOMPurify from 'dompurify';
 
 import { api } from "~/utils/api";
+import { useState } from "react";
+
+type Daf = {
+  ref: string,
+  heRef: string,
+  isComplex: boolean,
+  text: string,
+  he: string,
+
+}
+
+type Results = string[];
 
 const Home: NextPage = () => {
+  const [questionInput, setQuestionInput] = useState("");
+  const [result, setResult] = useState<Results>();
+  const [daf, setDaf] = useState<any>();
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const response = await fetch("/api/generate-answers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question: questionInput, daf: daf }),
+      });
+  
+      const data = await response.json();
+      if (response.status !== 200) {
+        throw data.error || new Error(`Request failed with status ${response.status}`);
+      }
+  
+      setResult(data.result);
+      setQuestionInput("");
+    } catch(error: any) {
+      // Consider implementing your own error handling logic here
+      console.error(error);
+      alert(error.message);
+    }
+  }
+
+  const getSefaria = async (daf: string) => {
+    const response = await fetch(`https://www.sefaria.org/api/texts/${daf}?context=0&commentary=0`);
+    const data = await response.json();
+    console.log(data);
+    return data;
+  }
+
+  const getDaf = async () => {
+    const daf = new DafYomi(new Date());
+    console.log(daf.render());
+    const dafText = await getSefaria(daf.render())
+
+    setDaf(dafText);
+  }
+
+
   const hello = api.example.hello.useQuery({ text: "from tRPC" });
 
   return (
@@ -18,46 +77,46 @@ const Home: NextPage = () => {
       <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c]">
         <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16 ">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
+            My <span className="text-[hsl(280,100%,70%)]">GPT</span> Test
           </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 md:gap-8 w-full">
+            <button onClick={getDaf} className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20">Get Daf</button>
+            <div className="flex flex-col gap-1 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20">
+              <h2> {daf?.ref} </h2>
+              <p dangerouslySetInnerHTML={ {__html: DOMPurify.sanitize(daf?.text) } } /> 
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 md:gap-8 w-full">
+
+            <div className="flex flex-col gap-1 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20">
+              <form onSubmit={onSubmit}>
+              <textarea value={questionInput} onChange={(e) => setQuestionInput(e.target.value)} className="text-black w-full max-w-100 h-20 p-5"/>
+              <button type="submit" className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20 block m-auto my-5">Submit</button>
+              </form>
+            </div>
+
+            <div className="flex flex-col gap-1 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20 max-w-100 overflow-clip">
+              {questionInput && <p className="font-semibold">{questionInput}</p>}
+              {result && result.map((answer: string) => <p>{answer}</p>)}
+            </div>
+          </div>
+          {/* <div className="flex flex-col items-center gap-2">
             <p className="text-2xl text-white">
               {hello.data ? hello.data.greeting : "Loading tRPC query..."}
             </p>
             <AuthShowcase />
-          </div>
+          </div> */}
         </div>
       </main>
     </>
   );
 };
+    
+
 
 export default Home;
-
+{/* 
 const AuthShowcase: React.FC = () => {
   const { data: sessionData } = useSession();
 
@@ -80,4 +139,4 @@ const AuthShowcase: React.FC = () => {
       </button>
     </div>
   );
-};
+}; */}
