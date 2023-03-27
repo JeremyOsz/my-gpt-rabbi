@@ -6,66 +6,61 @@ import { DafYomi } from "@hebcal/core";
 import * as DOMPurify from 'dompurify';
 
 import { api } from "~/utils/api";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { fetchCompletion, getDaf } from "~/utils/dataSources";
 import type { SefariaResponse } from "~/utils/dataSources";
-import { generateDafSummary } from "~/utils/promptHelpers";
+import { cleanPrompt, generateDafSummary } from "~/utils/promptHelpers";
 import Card from "~/components/card";
+import Trpc from "./api/trpc/[trpc]";
+import { fetchData } from "next-auth/client/_utils";
+
 
 
 type Results = string[];
 
+const useSummary = (text: string, ref?: string) => {
+  return api.openai.getSummary.useQuery({ 
+    text: generateDafSummary(text, ref)}, 
+    { enabled: !!ref }
+  )
+}
+
+const useRambam = (ref?: string) => {
+  return api.openai.getRambam.useQuery({ text: ref ?? ''}, { enabled: !!ref });
+}
+
+const useRashi = (ref?: string) => {
+  return api.openai.getRashi.useQuery({ text: ref ?? ''}, { enabled: !!ref });
+}
+
+const useGemaraRabbis = (ref?: string) => {
+  const trimmedRef = ref?.slice(0, 2000) ?? '';
+  return api.openai.getGemara.useQuery({ text: trimmedRef}, { enabled: !!ref });
+}
+
+const useGemaraDisagreement = ( rabbis?: string, ref?: string ) => {
+  // ERROR: conte
+
+  return api.openai.getGemaraDisagreement.useQuery({ ref: ref ?? '', rabbi: rabbis}, { enabled: !!ref && !!rabbis });
+}
+
 const Home: NextPage = () => {
-  const [questionInput, setQuestionInput] = useState("");
-  const [result, setResult] = useState<string>();
-  const [comments, setComments] = useState<string>();
-  const [rashi, setRashi] = useState<string>();
   const [daf, setDaf] = useState<SefariaResponse>();
-  
+  const summary = useSummary(daf?.text.join(' ') || '', daf?.ref);
+  const rambam = useRambam(daf?.ref);
+  const rashi = useRashi(daf?.ref);
+  const gemaraRabbis = useGemaraRabbis(daf?.text.join(' ') || '');
+  // const gemaraDisagreement = useGemaraDisagreement(gemaraRabbis.data?.response, daf?.ref || '');
+
 
   const getDaileyDaf = () : void => {
     getDaf(new Date()).then((daf) => {
-      console.log('daf', daf);
       setDaf(daf);
-
+      console.log('daf', daf);
     }).catch((error) => {
       console.error('error fetching daily daf', error);
     });
   }
-
-  useEffect(() => {
-    if (!daf) return;
-    const dafContent = daf.text.join(' ') || '';
-    const prompt = generateDafSummary(dafContent, daf.ref);
-    console.log('prompt', prompt);
-    fetchCompletion(prompt).then((completion) => {
-      setResult(completion.answer);
-    }).catch((error) => {
-      console.error('error fetching completion', error);
-    });
-  }, [daf]);
-
-  useEffect(() => {
-    if (!result || !daf ) return;
-    const prompt = `What is Rambam's view on ${daf.ref}?`;
-    fetchCompletion(prompt).then((completion) => {
-      setComments(completion.answer);
-    }).catch((error) => {
-      console.error('error fetching completion', error);
-    });
-  }, [result, daf]);
-
-  useEffect(() => {
-    if (!result || !daf ) return;
-    const prompt = `What is Rashi's view on ${daf.ref}?`;
-    fetchCompletion(prompt).then((completion) => {
-      setRashi(completion.answer);
-    }).catch((error) => {
-      console.error('error fetching completion', error);
-    });
-  }, [result, daf]);
-
-  // const hello = api.example.hello.useQuery({ text: "from tRPC" });
 
   return (
     <>
@@ -87,21 +82,26 @@ const Home: NextPage = () => {
             <Card>
               <h2 className="font-bold text-lg"> {daf?.ref} </h2>
               {
-                result && (
+                summary && (
                   <div className="font-serif font-neutral-normal leading-10 text-black-100 tracking-wide">
                     <h3 className="font-bold text-lg py-4"> Here is a summary of {daf?.ref}: </h3>
                     <div>
-                      { <p key={Math.random()}>{result}</p> }
+                      { <p key={Math.random()}>{summary.data?.response}</p> }
+                    </div>
+
+                    <h3 className="font-bold text-lg py-4"> Rabbis with opinions: </h3>
+                    <div>
+                      { <p key={Math.random()}>{gemaraRabbis.data?.response}</p> }
                     </div>
                     
                     <h3 className="font-bold text-lg py-4"> Rambam Says: </h3>
                     <div>
-                      { <p key={Math.random()}>{comments}</p> }
+                      { <p key={Math.random()}>{rambam.data?.response}</p> }
                     </div>
 
                     <h3 className="font-bold text-lg py-4"> Rashi Says: </h3>
                     <div>
-                      { <p key={Math.random()}>{rashi}</p> }
+                      { <p key={Math.random()}>{rashi.data?.response}</p> }
                     </div>
                   </div>
 

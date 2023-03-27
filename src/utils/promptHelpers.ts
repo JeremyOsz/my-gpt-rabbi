@@ -1,7 +1,6 @@
 
 // Clean a string to only essential elements
-const cleanPrompt = (prompt: string) => {
-    console.log('prompt', prompt)
+export const cleanPrompt = (prompt: string) => {
     // Remove all html tags
     prompt = prompt.replace(/(<([^>]+)>)/gi, '');
 
@@ -10,7 +9,6 @@ const cleanPrompt = (prompt: string) => {
 }
 
 const generateDafSummary = (daf: string, ref?: string ) => {
-    console.log('daf', daf)
     if(daf.length < 1) return 'Invalid prompt';
 
     return `

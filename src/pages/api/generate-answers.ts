@@ -47,14 +47,12 @@ const getOpenAICompletion = async (req: NextApiRequestWithBody<CompletionRequest
         prompt: prompt,
       }
       )
-    console.log('completion', completion)
     const response = completion.data.choices[0]?.text;
     res.status(200).json({
       answer: response
     });
   }
   catch(error){
-    console.log(error)
     res.status(500).json({
       error: {
         message: "Something went wrong",

@@ -2,6 +2,12 @@
 
 A trial at making a ChatGPT app for understanding Halacha.
 
+# TODO
+
+1. move all endpoints to trpc
+2. make answers stream in real time
+3. add a chat function to ask further questions
+
 ## How to run
 
 1. Clone the repo
