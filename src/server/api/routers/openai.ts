@@ -15,6 +15,14 @@ export type CompletionResponse = {
 	answer: string;
 };
 
+// Zod schema for ChatCompletion based on the type ChatCompletionRequestMessage[]
+const CompletionRequestSchema = z.array(z.object({ 
+	// Role is eithe "assistant" "system" or "user"
+	role: z.enum(["assistant", "system", "user"]),
+	content: z.string(),
+ }));
+
+
 
 import {
 	createTRPCRouter,
@@ -98,11 +106,27 @@ export const openaiRouter = createTRPCRouter({
 				response: response,
 			};
 	}),
+	getChatResponse: publicProcedure
+		.input(z.object({messages: CompletionRequestSchema}))
+		.query(async ({ input }) => {
+			const completion = await openai.createChatCompletion({
+				...openaiConfig,
+				messages: input.messages,
+			});
+			console.log('completion', completion)
+			const response = completion.data;
+			const content = completion;
+			return [
+				...input.messages,
+			];
+		}),
 
 
 	getAll: publicProcedure.query(({ ctx }) => {
 		return ctx.prisma.example.findMany();
 	}),
+
+
 
 	getSecretMessage: protectedProcedure.query(() => {
 		return "you can now see this secret message!";

@@ -13,6 +13,7 @@ import { cleanPrompt, generateDafSummary } from "~/utils/promptHelpers";
 import Card from "~/components/card";
 import Trpc from "./api/trpc/[trpc]";
 import { fetchData } from "next-auth/client/_utils";
+import Chat from "~/components/chat/chat";
 
 
 
@@ -38,11 +39,11 @@ const useGemaraRabbis = (ref?: string) => {
   return api.openai.getGemara.useQuery({ text: trimmedRef}, { enabled: !!ref });
 }
 
-const useGemaraDisagreement = ( rabbis?: string, ref?: string ) => {
-  // ERROR: conte
+// const useGemaraDisagreement = ( rabbis?: string, ref?: string ) => {
+//   // ERROR: conte
 
-  return api.openai.getGemaraDisagreement.useQuery({ ref: ref ?? '', rabbi: rabbis}, { enabled: !!ref && !!rabbis });
-}
+//   return api.openai.getGemaraDisagreement.useQuery({ ref: ref ?? '', rabbi: rabbis}, { enabled: !!ref && !!rabbis });
+// }
 
 const Home: NextPage = () => {
   const [daf, setDaf] = useState<SefariaResponse>();
@@ -110,6 +111,10 @@ const Home: NextPage = () => {
                 )
 
               }      
+            </Card>
+
+            <Card>
+              <Chat />
             </Card>
 
             {/* Full Daf */}

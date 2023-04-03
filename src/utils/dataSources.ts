@@ -62,7 +62,7 @@ const getDaf = async ( date : Date ) : Promise<SefariaResponse> => {
 const cleanPrompt = (prompt: string) => {
     const trimmedPrompt = prompt.trim();
     const truncatedPrompt = trimmedPrompt.slice(0, 1000);
-    return trimmedPrompt;
+    return truncatedPrompt;
 }
 
 const fetchCompletion = async (prompt: string): Promise<CompletionResponse>=> {

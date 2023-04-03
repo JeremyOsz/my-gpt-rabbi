@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { Configuration, OpenAIApi } from "openai";
 import { openaiConfig } from "~/utils/configs";
+
+import { ChatCompletionRequestMessage, Configuration, OpenAIApi } from "openai"
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,52 +24,17 @@ export interface NextResponseWithBody<BodyType> extends NextApiResponse {
   body: BodyType;
 }
 
-const getOpenAICompletion = async (req: NextApiRequestWithBody<CompletionRequest>, res: NextResponseWithBody<CompletionRequest>) => {
-  const { prompt } = req.body;
 
-  if (prompt.length === 0) {
-    res.status(400).json({
-      error: {
-        message: "Please enter a valid question",
-      }
-    });
-    return;
-  }
-
-  try{
-    const completion = await openai.createCompletion(
-      {
-        model: "text-davinci-003",
-        temperature: 0.7,
-        max_tokens: 2000,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-        prompt: prompt,
-      }
-      )
-    const response = completion.data.choices[0]?.text;
-    res.status(200).json({
-      answer: response
-    });
-  }
-  catch(error){
-    res.status(500).json({
-      error: {
-        message: "Something went wrong",
-        error: error
-      }
-    });
-  }
- 
-
-};
-
-export default getOpenAICompletion;
+export default async function handler(
+  req: NextApiRequestWithBody<{ messages: ChatCompletionRequestMessage[] }>,
+  res: NextApiResponse
+) {
 
 
+  const completion = await openai.createChatCompletion({
+    model: "gpt-3.5-turbo",
+    messages: req.body.messages,
+  })
 
-
-// TODO: Add a function to get opinion of Rambam on a given daf
-// TODO: Add a function to get opinion of Rashi on a given daf
-// TODO: Add a function to get opinion from Shulchan Aruch on a given daf
+  res.status(200).json({ result: completion.data })
+}
