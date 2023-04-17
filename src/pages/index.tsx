@@ -1,23 +1,22 @@
 import { type NextPage } from "next";
 import Head from "next/head";
-import Link from "next/link";
-import { signIn, signOut, useSession } from "next-auth/react";
-import { DafYomi } from "@hebcal/core";
 import * as DOMPurify from 'dompurify';
 
 import { api } from "~/utils/api";
-import { use, useEffect, useState } from "react";
-import { fetchCompletion, getDaf } from "~/utils/dataSources";
+import { Suspense, useEffect, useState } from "react";
+import { getDaf } from "~/utils/dataSources";
 import type { SefariaResponse } from "~/utils/dataSources";
-import { cleanPrompt, generateDafSummary } from "~/utils/promptHelpers";
+import {  generateDafSummary } from "~/utils/promptHelpers";
 import Card from "~/components/card";
-import Trpc from "./api/trpc/[trpc]";
-import { fetchData } from "next-auth/client/_utils";
-import Chat from "~/components/chat/chat";
+import { Chat} from "~/components/chat/chat";
+import { type ChatItem } from "~/components/chat/ChatContent";
 
-
-
-type Results = string[];
+const defaultOpts = {
+  refetchOnWindowFocus: false, 
+  refetchOnMount: false,
+  refetchOnReconnect: false, 
+  refetchInterval: 0,
+}
 
 const useSummary = (text: string, ref?: string) => {
   return api.openai.getSummary.useQuery({ 
@@ -27,23 +26,18 @@ const useSummary = (text: string, ref?: string) => {
 }
 
 const useRambam = (ref?: string) => {
-  return api.openai.getRambam.useQuery({ text: ref ?? ''}, { enabled: !!ref });
+  return api.openai.getRambam.useQuery({ text: ref ?? ''}, { enabled: !!ref, ...defaultOpts });
 }
 
 const useRashi = (ref?: string) => {
-  return api.openai.getRashi.useQuery({ text: ref ?? ''}, { enabled: !!ref });
+  return api.openai.getRashi.useQuery({ text: ref ?? ''}, { enabled: !!ref, ...defaultOpts });
 }
 
 const useGemaraRabbis = (ref?: string) => {
   const trimmedRef = ref?.slice(0, 2000) ?? '';
-  return api.openai.getGemara.useQuery({ text: trimmedRef}, { enabled: !!ref });
+  return api.openai.getGemara.useQuery({ text: trimmedRef}, { enabled: !!ref, ...defaultOpts });
 }
 
-// const useGemaraDisagreement = ( rabbis?: string, ref?: string ) => {
-//   // ERROR: conte
-
-//   return api.openai.getGemaraDisagreement.useQuery({ ref: ref ?? '', rabbi: rabbis}, { enabled: !!ref && !!rabbis });
-// }
 
 const Home: NextPage = () => {
   const [daf, setDaf] = useState<SefariaResponse>();
@@ -51,8 +45,7 @@ const Home: NextPage = () => {
   const rambam = useRambam(daf?.ref);
   const rashi = useRashi(daf?.ref);
   const gemaraRabbis = useGemaraRabbis(daf?.text.join(' ') || '');
-  // const gemaraDisagreement = useGemaraDisagreement(gemaraRabbis.data?.response, daf?.ref || '');
-
+  const [context, setContext] = useState<ChatItem[]>([]);
 
   const getDaileyDaf = () : void => {
     getDaf(new Date()).then((daf) => {
@@ -62,6 +55,20 @@ const Home: NextPage = () => {
       console.error('error fetching daily daf', error);
     });
   }
+
+  useEffect(() => {
+    if(daf) {
+    setContext(
+      [
+        {
+          author: 'AI',
+          content: `What is the summary of ${daf.ref}?`,
+        }
+      ]
+    );
+    }
+  }, [daf]);
+  
 
   return (
     <>
@@ -77,6 +84,10 @@ const Home: NextPage = () => {
           </h1>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 md:gap-8 w-full">
+            <div className="block text-center w-full m-auto">
+            <p>Welcome to MyGPTRabbi - Grab the daily Talmud Portion to begin the chat...</p>
+            <p>Please note that this is an experimental project for fun - please do not rely on the results for halachic decisions.</p>
+            </div>
             <button onClick={getDaileyDaf} className="rounded-full bg-white/50 px-10 py-3 font-semibold text-black no-underline transition hover:bg-white/70">Get Daf</button>
 
             {/* Daf Summary */}
@@ -84,70 +95,59 @@ const Home: NextPage = () => {
               <h2 className="font-bold text-lg"> {daf?.ref} </h2>
               {
                 summary && (
-                  <div className="font-serif font-neutral-normal leading-10 text-black-100 tracking-wide">
-                    <h3 className="font-bold text-lg py-4"> Here is a summary of {daf?.ref}: </h3>
-                    <div>
-                      { <p key={Math.random()}>{summary.data?.response}</p> }
-                    </div>
+                  <div className="font-serif font-neutral-normal leading-6 text-black-100 tracking-wide">
+                    <Suspense fallback={<div>Loading...</div>}>
+                      <h3 className="font-bold text-lg py-4"> Here is a summary of {daf?.ref}: </h3>
+                      <div>
+                      <p key={Math.random()}>
+                      {daf && summary.isLoading ? "Loading..." : summary.data?.response}
+                      </p>
+                      </div>
+                    </Suspense>
+                    
 
                     <h3 className="font-bold text-lg py-4"> Rabbis with opinions: </h3>
                     <div>
-                      { <p key={Math.random()}>{gemaraRabbis.data?.response}</p> }
+                      <p key={Math.random()}>
+                      { daf && gemaraRabbis.isLoading ? "Loading..." : gemaraRabbis.data?.response}
+                      </p> 
                     </div>
                     
                     <h3 className="font-bold text-lg py-4"> Rambam Says: </h3>
                     <div>
-                      { <p key={Math.random()}>{rambam.data?.response}</p> }
+                      <p key={Math.random()}>
+                      { daf && rambam.isLoading ? "Loading..." : rambam.data?.response}
+                      </p> 
                     </div>
 
                     <h3 className="font-bold text-lg py-4"> Rashi Says: </h3>
                     <div>
-                      { <p key={Math.random()}>{rashi.data?.response}</p> }
+                      <p key={Math.random()}>
+                      { daf && rashi.isLoading ? "Loading..." : rashi.data?.response}
+                      </p> 
                     </div>
                   </div>
-
-
-                  
                 )
 
               }      
             </Card>
 
             <Card>
-              <Chat />
+              {context.length > 0 && <Chat />}
             </Card>
 
             {/* Full Daf */}
             <Card>
             <div className="font-serif font-neutral-normal leading-10 text-black-100 tracking-wide">
+                <h3 className="font-bold text-lg py-4">Source:</h3>
+                <h6><a className="text-blue-400" href={daf?.versionSource}>{daf?.ref} - {daf?.versionTitle}</a> (from <a className="text-blue-400" href="https://www.sefaria.org">Sefaria.org</a>)</h6>
                 {daf?.text.map((line, index) => {
-                    return <p className="py-2 " key={index} dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(line.join())}} />
+                    return <p className="py-2 pr-20 leading-6 " key={index} dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(line.join())}} />
                   })
                 }
               </div>
             </Card>
           </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-1 md:gap-8 w-full">
-{/* 
-            <div className="flex flex-col gap-1 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20">
-              <form onSubmit={onSubmit}>
-              <textarea value={questionInput} onChange={(e) => setQuestionInput(e.target.value)} className="text-black w-full max-w-100 h-20 p-5"/>
-              <button type="submit" className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20 block m-auto my-5">Submit</button>
-              </form>
-            </div>
-
-            <div className="flex flex-col gap-1 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20 max-w-100 overflow-clip">
-              {questionInput && <p className="font-semibold">{questionInput}</p>}
-              {result && result.map((answer: string) => <p>{answer}</p>)}
-            </div> */}
-          </div>
-          {/* <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello.data ? hello.data.greeting : "Loading tRPC query..."}
-            </p>
-            <AuthShowcase />
-          </div> */}
         </div>
       </main>
     </>
@@ -157,55 +157,3 @@ const Home: NextPage = () => {
 
 
 export default Home;
-{/* 
-const AuthShowcase: React.FC = () => {
-  const { data: sessionData } = useSession();
-
-  const { data: secretMessage } = api.example.getSecretMessage.useQuery(
-    undefined, // no input
-    { enabled: sessionData?.user !== undefined },
-  );
-
-  return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <p className="text-center text-2xl text-white">
-        {sessionData && <span>Logged in as {sessionData.user?.name}</span>}
-        {secretMessage && <span> - {secretMessage}</span>}
-      </p>
-      <button
-        className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20"
-        onClick={sessionData ? () => void signOut() : () => void signIn()}
-      >
-        {sessionData ? "Sign out" : "Sign in"}
-      </button>
-    </div>
-  );
-}; */}
-
-
-
-
-  // async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-  //   event.preventDefault();
-  //   try {
-  //     const response = await fetch("/api/generate-answers", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({ question: questionInput, daf: daf }),
-  //     });
-  
-  //     const data = await response.json();
-  //     if (response.status !== 200) {
-  //       throw data.error || new Error(`Request failed with status ${response.status}`);
-  //     }
-  
-  //     setResult(data.result);
-  //     setQuestionInput("");
-  //   } catch(error: any) {
-  //     // Consider implementing your own error handling logic here
-  //     console.error(error);
-  //     alert(error.message);
-  //   }
-  // }

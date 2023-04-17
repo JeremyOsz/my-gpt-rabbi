@@ -7,21 +7,10 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 
-type CompletionRequest = {
-	prompt: string;
-};
 
 export type CompletionResponse = {
 	answer: string;
 };
-
-// Zod schema for ChatCompletion based on the type ChatCompletionRequestMessage[]
-const CompletionRequestSchema = z.array(z.object({ 
-	// Role is eithe "assistant" "system" or "user"
-	role: z.enum(["assistant", "system", "user"]),
-	content: z.string(),
- }));
-
 
 
 import {
@@ -29,6 +18,16 @@ import {
 	publicProcedure,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import axios from "axios";
+import { TRPCError } from "@trpc/server";
+
+type Message = {
+  role: "user" | "system" | "assistant";
+  content: string;
+};
+
+const messages: Message[] = [];
+
 
 export const openaiRouter = createTRPCRouter({
 	getSummary: publicProcedure
@@ -40,6 +39,10 @@ export const openaiRouter = createTRPCRouter({
 			});
 			console.log('completion', completion)
 			const response = completion.data.choices[0]?.text;
+			messages.push({
+				role: "assistant",
+				content: response || "",
+			});
 			return {
 				response: response,
 			};
@@ -54,6 +57,10 @@ export const openaiRouter = createTRPCRouter({
 			});
 			console.log('completion', completion)
 			const response = completion.data.choices[0]?.text;
+			messages.push({
+				role: "assistant",
+				content: response || "",
+			});
 			return {
 				response: response,
 			};
@@ -86,6 +93,10 @@ export const openaiRouter = createTRPCRouter({
 			});
 			console.log('completion', completion)
 			const response = completion.data.choices[0]?.text;
+			messages.push({
+				role: "assistant",
+				content: response || "",
+			});
 			return {
 				response: response,
 			};
@@ -102,24 +113,62 @@ export const openaiRouter = createTRPCRouter({
 			});
 			console.log('completion', completion)
 			const response = completion.data.choices[0]?.text;
+			messages.push({
+				role: "assistant",
+				content: response || "",
+			});
 			return {
 				response: response,
 			};
 	}),
-	getChatResponse: publicProcedure
-		.input(z.object({messages: CompletionRequestSchema}))
-		.query(async ({ input }) => {
-			const completion = await openai.createChatCompletion({
-				...openaiConfig,
-				messages: input.messages,
-			});
-			console.log('completion', completion)
-			const response = completion.data;
-			const content = completion;
-			return [
-				...input.messages,
-			];
-		}),
+		generateText: publicProcedure
+    .input(z.object({ prompt: z.string() }))
+    .mutation(async ({ input }) => {
+      const { prompt } = input;
+
+      messages.push({
+        role: "user",
+        content: prompt,
+      });
+
+      try {
+        const completion = await openai.createChatCompletion({
+          model: "gpt-3.5-turbo",
+          messages,
+        });
+
+        const generatedText = completion.data.choices[0]?.message?.content;
+
+        if (generatedText) {
+          messages.push({
+            role: completion.data.choices[0]?.message?.role ?? "system",
+            content: generatedText,
+          });
+        }
+
+        return {
+          generatedText: generatedText ?? "<no text generated>",
+        };
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            message: error.response?.data?.error?.message,
+          });
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }),
+
+  reset: publicProcedure.mutation(() => {
+    messages.length = 0;
+  }),
+
 
 
 	getAll: publicProcedure.query(({ ctx }) => {

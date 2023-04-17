@@ -1,8 +1,6 @@
 import { DafYomi } from "@hebcal/core";
-import { NextResponse } from "next/server";
-import { CompletionResponse, NextResponseWithBody } from "src/pages/api/generate-answers";
-import { type } from "os";
-
+import { type NextResponse } from "next/server";
+import { type CompletionResponse } from "src/pages/api/generate-answers";
 
 // Infer type from Nazir
 export type SefariaResponse = {

@@ -1,16 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { openaiConfig } from "~/utils/configs";
 
-import { ChatCompletionRequestMessage, Configuration, OpenAIApi } from "openai"
+import { type ChatCompletionRequestMessage, Configuration, OpenAIApi } from "openai"
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
-
-type CompletionRequest = {
-  prompt: string;
-};
 
 export type CompletionResponse = {
   answer: string;

@@ -1,59 +1,81 @@
-import { ChatCompletionRequestMessage, ChatCompletionRequestMessageRoleEnum } from "openai"
-import React, { useRef } from "react"
+import React, { type FunctionComponent, useRef, useState } from "react"
 import { api } from "~/utils/api"
+import { ChatContent, type ChatItem } from "./ChatContent"
+import { ChatInput } from "./ChatInput"
 
-interface Conversation {
+export type Conversation = {
   role: string
   content: string
 }
 
-// UseQuery based on getChatCompletion
-const useChatCompletion = (messages: ChatCompletionRequestMessage[]) => {
-    return api.openai.getChatResponse.useQuery({ messages }, { enabled: !!messages && messages.length > 0 })
-}
 
-export default function Chat() {
-  // States
-  const [value, setValue] = React.useState<string>("")
-  const [chatHistory, setChatHistory] = React.useState<ChatCompletionRequestMessage[]>([])
-  const conversation = useChatCompletion(chatHistory)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setChatHistory([...chatHistory, { role: "user", content: value }])
-    setValue("")
-  }
+export const Chat: FunctionComponent = () => {
+  const [chatItems, setChatItems] = useState<ChatItem[]>([]);
+  const [waiting, setWaiting] = useState<boolean>(false);
+  const scrollToRef = useRef<HTMLDivElement>(null);
 
-  const handleRefresh = () => {
-    console.log(conversation.data)
-    inputRef.current?.focus()
-    setValue("")
-    setChatHistory([])
-  }
-
-  return (
-    <div className='w-full'>
-      <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-          ></input>
-          <button type="submit">Submit</button>
-      </form>
-      <div>
-        RESULTS
+  const generatedTextMutation = api.openai.generateText.useMutation({
+    onSuccess: (data) => {
+      setChatItems([
+        ...chatItems,
         {
-          conversation.data && conversation.data.map(({role, content}, index) => (
-            <div className="rounded-sm bg-blue-200" key={index}>
-              <p>{role}</p>
-              <p>{content}</p>
-            </div>
-          ))
-        }
+          content: data.generatedText,
+          author: "AI",
+        },
+      ]);
+    },
 
-      </div>
+    onError: (error) => {
+      setChatItems([
+        ...chatItems,
+        {
+          content: error.message ?? "An error occurred",
+          author: "AI",
+          isError: true,
+        },
+      ]);
+    },
+
+    onSettled: () => {
+      setWaiting(false);
+    },
+  });
+
+  const resetMutation = api.openai.reset.useMutation();
+
+  const handleUpdate = (prompt: string) => {
+    setWaiting(true);
+
+    setChatItems([
+      ...chatItems,
+      {
+        content: prompt.replace(/\n/g, "\n\n"),
+        author: "User",
+      },
+    ]);
+
+    generatedTextMutation.mutate({ prompt });
+  };
+
+  const handleReset = () => {
+    setChatItems([]);
+    resetMutation.mutate();
+  };
+  return (
+    <div className='w-full rounded-xl overflow-clip'>
+      <section className="w-full flex-grow overflow-y-scroll">
+          <ChatContent chatItems={chatItems} />
+          <div ref={scrollToRef} />
+        </section>
+
+        <section className="w-full">
+          <ChatInput
+            onUpdate={handleUpdate}
+            onReset={handleReset}
+            waiting={waiting}
+          />
+        </section>
     </div>
   )
 }
